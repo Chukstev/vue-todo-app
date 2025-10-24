@@ -51,20 +51,71 @@ export const useTodosStore = defineStore("todos", () => {
   });
 
   async function fetchTodos() {
-    // No need to fetch - todos are already loaded from localStorage
-    return Promise.resolve();
+    // If we have todos in localStorage, use those
+    if (todos.value.length > 0) {
+      return Promise.resolve();
+    }
+
+    // Otherwise fetch initial data from API
+    loading.value = true;
+    error.value = null;
+    try {
+      const response = await fetch("https://jsonplaceholder.typicode.com/todos");
+      if (!response.ok) {
+        throw new Error("Failed to fetch todos");
+      }
+      const data = await response.json();
+      // Add description field since JSONPlaceholder todos don't have it
+      todos.value = data.map((todo) => ({
+        ...todo,
+        description: `Task ${todo.id} details`,
+      }));
+    } catch (e) {
+      error.value = e.message;
+      console.error("Failed to fetch initial todos:", e);
+      // Fallback to empty array if API fails
+      todos.value = [];
+    } finally {
+      loading.value = false;
+    }
   }
 
   async function addTodo(todo) {
+    const tempId = Date.now(); // Temporary ID for optimistic UI
     const newTodo = {
-      id: Date.now(), // Use timestamp as unique ID
+      id: tempId,
       title: todo.title,
       description: todo.description || `Task details`,
       completed: false,
       userId: 1,
     };
+
+    // Optimistically add to local state
     todos.value.push(newTodo);
-    return Promise.resolve(newTodo);
+
+    // Try to sync with API
+    try {
+      const response = await fetch("https://jsonplaceholder.typicode.com/todos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: todo.title,
+          completed: false,
+          userId: 1,
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn("Failed to sync new todo with API, keeping local version");
+      }
+
+      return newTodo;
+    } catch (e) {
+      console.warn("Network error while syncing todo, keeping local version:", e);
+      return newTodo;
+    }
   }
 
   async function deleteTodo(id) {
