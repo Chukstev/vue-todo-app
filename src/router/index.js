@@ -45,8 +45,11 @@ router.beforeEach((to, from, next) => {
         path: "/login",
         query: { redirect: to.fullPath },
       });
-      return;
+    } else {
+      next();
     }
+  } else {
+    next();
   }
 
   if (to.path === "/login" && authStore.isAuthenticated) {

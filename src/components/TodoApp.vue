@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useTodosStore } from "@/stores/todos";
 import { useAuthStore } from "@/stores/auth";
@@ -30,15 +30,17 @@ const newTitle = ref("");
 const selectedTodo = ref(null);
 const searchTerm = ref("");
 
-const filteredResults = computed(() => {
-  const term = searchTerm.value.toLowerCase().trim();
-  return store.todos.filter(
-    (todo) =>
-      todo.title.toLowerCase().includes(term) || todo.description.toLowerCase().includes(term)
-  );
+// Update store's search term when local search changes
+watch(searchTerm, (newTerm) => {
+  store.searchTerm = newTerm;
 });
-onMounted(() => {
-  if (!store.todos.length) store.fetchTodos();
+
+onMounted(async () => {
+  try {
+    await store.fetchTodos();
+  } catch (e) {
+    console.error("Failed to fetch todos:", e);
+  }
 });
 
 const currentView = computed(() => {
@@ -49,16 +51,15 @@ const currentView = computed(() => {
 });
 
 const filteredTodos = computed(() => {
-  const base = filteredResults.value;
-  if (currentView.value === "pending") return base.filter((t) => !t.completed);
-  if (currentView.value === "completed") return base.filter((t) => t.completed);
-  return base;
+  // Use store's filtered todos
+  const todos = store.filtered;
+  if (currentView.value === "pending") return todos.filter((t) => !t.completed);
+  if (currentView.value === "completed") return todos.filter((t) => t.completed);
+  return todos;
 });
 
 const currentTodoPage = computed(() => {
-  const last = store.currentPage * store.itemsPerPage;
-  const first = last - store.itemsPerPage;
-  return filteredTodos.value.slice(first, last);
+  return store.paginatedTodos;
 });
 
 const setCurrentPage = (p) => (store.currentPage = p);
