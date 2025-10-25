@@ -51,15 +51,19 @@ const currentView = computed(() => {
 });
 
 const filteredTodos = computed(() => {
-  // Use store's filtered todos
-  const todos = store.filtered;
-  if (currentView.value === "pending") return todos.filter((t) => !t.completed);
-  if (currentView.value === "completed") return todos.filter((t) => t.completed);
-  return todos;
+  // First apply the search filter from store
+  const searchFiltered = store.filtered;
+  // Then apply the view filter (all/pending/completed)
+  if (currentView.value === "pending") return searchFiltered.filter((t) => !t.completed);
+  if (currentView.value === "completed") return searchFiltered.filter((t) => t.completed);
+  return searchFiltered;
 });
 
 const currentTodoPage = computed(() => {
-  return store.paginatedTodos;
+  // Apply pagination to our filtered results
+  const start = (store.currentPage - 1) * store.itemsPerPage;
+  const end = start + store.itemsPerPage;
+  return filteredTodos.value.slice(start, end);
 });
 
 const setCurrentPage = (p) => (store.currentPage = p);
